@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Simetri Kristalografi 3D</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151f32',
+                            950: '#0a0f1d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #0a0f1d;
+            color: #f3f4f6;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(71, 85, 105, 1);
+        }
+        /* Matrix cell styling */
+        .matrix-cell {
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            transition: all 0.2s ease;
+        }
+        /* Custom range slider styling */
+        input[type=range] {
+            accent-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
+
+    <header class="h-14 bg-slate-900/90 border-b border-slate-800/80 px-4 flex items-center justify-between z-20 backdrop-blur-md">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30">
+                <i class="fa-solid font-mono text-sm"><i class="fa-solid fa-gem"></i></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-slate-100 tracking-wide flex items-center gap-2">
+                    Simulasi Simetri Kristalografi 3D
+                    <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">Edu-Crystallography</span>
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Preset Quick Select -->
+            <div class="relative inline-block text-left">
+                <select id="presetSelect" onchange="applyPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+                    <option value="" disabled selected>⚡ Preset Operator...</option>
+                    <option value="mirror_xy">Cermin (Bidang XY)</option>
+                    <option value="rot_4_z">Rotasi 4-Lipat (Sumbu Z)</option>
+                    <option value="rotoinv_3_z">Rotoinversi 3̄ (Sumbu Z)</option>
+                    <option value="rotoref_4_z">Rotorifleksi S4 (Sumbu Z)</option>
+                    <option value="screw_4_1">Sumbu Sekrup 4₁ (Sumbu Z)</option>
+                    <option value="glide_a">Bidang Geser a (Trans. X)</option>
+                </select>
+            </div>
+
+            <!-- Guide / Info Button -->
+            <button onclick="toggleModal('infoModal')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-info text-blue-400"></i> Panduan
+            </button>
+            <button onclick="resetCamera()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-medium rounded-lg transition-colors flex items-center gap-1.5" title="Reset Pandangan Kamera">
+                <i class="fa-solid fa-video"></i> Reset Kamera
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex relative overflow-hidden">
+
+        <!-- 3D View Canvas Container -->
+        <div id="canvas-container" class="flex-1 h-full w-full relative bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+            <!-- Floating Overlay Information inside Canvas -->
+            <div class="absolute top-4 left-4 z-10 pointer-events-none flex flex-col gap-2">
+                <div class="bg-slate-900/80 backdrop-blur-md p-3 rounded-xl border border-slate-800 text-xs space-y-1 shadow-xl max-w-xs">
+                    <div class="font-semibold text-slate-200 flex items-center justify-between">
+                        <span id="activeOpTitle">Cermin (Mirror)</span>
+                        <span id="hmSymbol" class="font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/50">m</span>
+                    </div>
+                    <p id="opDescription" class="text-slate-400 leading-relaxed text-[11px]">
+                        Merefleksikan koordinat objek terhadap bidang datar yang ditentukan.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Legend Overlay -->
+            <div class="absolute bottom-4 left-4 z-10 bg-slate-900/80 backdrop-blur-md p-2.5 rounded-xl border border-slate-800/80 text-[11px] text-slate-300 flex items-center gap-4 shadow-lg pointer-events-auto flex-wrap max-w-md">
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-blue-500/60 border border-blue-400 inline-block"></span>
+                    <span>Posisi Awal</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-500"></span>
+                    <span>Posisi Hasil</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-400"></span>
+                    <span>Jejak Orde Step (Ghost)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500"></span>
+                    <span>Penanda Ujung</span>
+                </div>
+            </div>
+
+            <!-- Canvas element generated by ThreeJS -->
+        </div>
+
+        <aside class="w-80 md:w-96 bg-slate-900/95 border-l border-slate-800/80 flex flex-col z-10 backdrop-blur-md shadow-2xl h-full overflow-y-auto">
+            
+            <!-- Operator Selection Tabs -->
+            <div class="p-4 border-b border-slate-800">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Operator Simetri</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button onclick="setOperator('mirror')" id="btn-mirror" class="op-tab-btn active px-2.5 py-2 text-xs font-medium rounded-lg border text-left transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-arrows-left-right text-cyan-400 w-4 text-center"></i> Cermin
+                    </button>
+                    <button onclick="setOperator('rotation')" id="btn-rotation" class="op-tab-btn px-2.5 py-2 text-xs font-medium rounded-lg border text-left transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-rotate text-emerald-400 w-4 text-center"></i> Rotasi
+                    </button>
+                    <button onclick="setOperator('rotoreflection')" id="btn-rotoreflection" class="op-tab-btn px-2.5 py-2 text-xs font-medium rounded-lg border text-left transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-arrows-spin text-purple-400 w-4 text-center"></i> Rotorifleksi
+                    </button>
+                    <button onclick="setOperator('rotoinversion')" id="btn-rotoinversion" class="op-tab-btn px-2.5 py-2 text-xs font-medium rounded-lg border text-left transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-globe text-amber-400 w-4 text-center"></i> Rotoinversi
+                    </button>
+                    <button onclick="setOperator('screw')" id="btn-screw" class="op-tab-btn px-2.5 py-2 text-xs font-medium rounded-lg border text-left transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-bolt text-indigo-400 w-4 text-center"></i> Sekrup
+                    </button>
+                    <button onclick="setOperator('glide')" id="btn-glide" class="op-tab-btn px-2.5 py-2 text-xs font-medium rounded-lg border text-left transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-route text-rose-400 w-4 text-center"></i> Geser (Glide)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Parameters Panel -->
+            <div class="p-4 space-y-4 flex-1">
+                
+                <!-- Fold Order Selection (for rotational operators) -->
+                <div id="foldOrderContainer" class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-medium text-slate-300">Orde Lipat Rotasi ($n$)</label>
+                        <span id="foldDegreeBadge" class="text-[11px] font-mono text-cyan-400 bg-slate-800 px-2 py-0.5 rounded">360° / 1 = 360°</span>
+                    </div>
+                    <div class="flex gap-1.5">
+                        <button onclick="setFold(1)" class="fold-btn flex-1 py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">1</button>
+                        <button onclick="setFold(2)" class="fold-btn flex-1 py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">2</button>
+                        <button onclick="setFold(3)" class="fold-btn flex-1 py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">3</button>
+                        <button onclick="setFold(4)" class="fold-btn flex-1 py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">4</button>
+                        <button onclick="setFold(6)" class="fold-btn flex-1 py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 hover:bg-slate-700">6</button>
+                    </div>
+                </div>
+
+                <!-- Screw Index Options (For Screw Axis) -->
+                <div id="screwIndexContainer" class="space-y-2 hidden">
+                    <label class="text-xs font-medium text-slate-300">Indeks Sekrup ($m$ dalam $n_m$)</label>
+                    <div id="screwIndexButtons" class="flex gap-1.5">
+                        <!-- Dynamic Screw Index buttons -->
+                    </div>
+                </div>
+
+                <!-- Axis or Plane Normal Vector Parameters -->
+                <div class="space-y-2 bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                    <label id="axisPlaneLabel" class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span>Arah Sumbu / Normal Bidang</span>
+                        <span class="text-[10px] text-slate-400 font-normal">Vektor (u, v, w)</span>
+                    </label>
+
+                    <!-- Quick Preset Axes -->
+                    <div class="flex gap-1.5 mb-2">
+                        <button onclick="setVectorPreset(1,0,0)" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">X (1,0,0)</button>
+                        <button onclick="setVectorPreset(0,1,0)" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">Y (0,1,0)</button>
+                        <button onclick="setVectorPreset(0,0,1)" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">Z (0,0,1)</button>
+                        <button onclick="setVectorPreset(1,1,0)" class="px-2 py-1 text-[11px] bg-slate-800 hover:bg-slate-700 rounded border border-slate-700 text-slate-300">Diag (1,1,0)</button>
+                    </div>
+
+                    <!-- Slider & Manual Input X, Y, Z -->
+                    <div class="space-y-2 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 text-red-400 font-bold">U:</span>
+                            <input type="range" id="vecX_slider" min="-2" max="2" step="0.1" value="0" oninput="syncVecFromSlider('X')" class="flex-1">
+                            <input type="number" id="vecX_num" value="0" step="0.1" onchange="syncVecFromNum('X')" class="w-14 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center font-mono">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 text-emerald-400 font-bold">V:</span>
+                            <input type="range" id="vecY_slider" min="-2" max="2" step="0.1" value="0" oninput="syncVecFromSlider('Y')" class="flex-1">
+                            <input type="number" id="vecY_num" value="0" step="0.1" onchange="syncVecFromNum('Y')" class="w-14 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center font-mono">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 text-blue-400 font-bold">W:</span>
+                            <input type="range" id="vecZ_slider" min="-2" max="2" step="0.1" value="1" oninput="syncVecFromSlider('Z')" class="flex-1">
+                            <input type="number" id="vecZ_num" value="1" step="0.1" onchange="syncVecFromNum('Z')" class="w-14 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center font-mono">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Translation Parameters (for Glide & Screw) -->
+                <div id="translationContainer" class="space-y-2 bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-slate-300">Vektor Translasi Kristal</label>
+                        <span id="transValBadge" class="text-[11px] font-mono text-cyan-400">1.0 unit</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="range" id="transSlider" min="0" max="3" step="0.1" value="1.0" oninput="updateTranslationFromSlider()" class="flex-1">
+                        <input type="number" id="transNum" value="1.0" step="0.1" onchange="updateTranslationFromNum()" class="w-16 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-center text-xs font-mono">
+                    </div>
+                </div>
+
+                <div class="space-y-2 bg-slate-800/30 p-3 rounded-xl border border-slate-800/80">
+                    <label class="text-xs font-semibold text-slate-300 block mb-1">Motif / Objek Kristal</label>
+                    <select id="motifSelect" onchange="changeMotif(this.value)" class="w-full bg-slate-900 border border-slate-700 text-xs rounded-lg p-2 text-slate-200">
+                        <option value="asymmetric_unit">Asymmetric Motif (Poliedron Asimetris)</option>
+                        <option value="tetrahedron">Tetrahedron Bergugus</option>
+                        <option value="quartz_crystal">Bentuk Kristal Kuarsa</option>
+                        <option value="lattice_points">Titik Kisi Unit Cell</option>
+                    </select>
+
+                    <div class="pt-2 grid grid-cols-2 gap-2 text-xs text-slate-300">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkShowOriginal" checked onchange="updateVisibilities()" class="rounded border-slate-700 text-blue-600 focus:ring-0">
+                            <span>Objek Awal</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="chkShowHelper" checked onchange="updateVisibilities()" class="rounded border-slate-700 text-blue-600 focus:ring-0">
+                            <span>Sumbu/Bidang</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer col-span-2">
+                            <input type="checkbox" id="chkShowSteps" checked onchange="updateVisibilities()" class="rounded border-slate-700 text-blue-600 focus:ring-0">
+                            <span>Jejak Objek per Step Orde</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Animation Progress Control -->
+                <div class="space-y-2 bg-slate-800/80 p-3 rounded-xl border border-blue-900/40">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                            <i class="fa-solid fa-play text-blue-400"></i> Putaran Penuh & Step
+                        </span>
+                        <div class="flex items-center gap-1.5">
+                            <span id="stepBadge" class="font-mono text-[10px] text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-700/50">Langkah 1/1</span>
+                            <span id="animPercent" class="font-mono text-blue-400">100%</span>
+                        </div>
+                    </div>
+
+                    <input type="range" id="animProgress" min="0" max="1" step="0.005" value="1" oninput="onAnimSliderInput(this.value)" class="w-full">
+
+                    <div class="flex gap-2 pt-1">
+                        <button id="btnPlay" onclick="togglePlayAnimation()" class="flex-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/30">
+                            <i id="playIcon" class="fa-solid fa-play"></i> <span id="playText">Putar Putaran Penuh</span>
+                        </button>
+                        <button onclick="resetAnimProgress()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-lg transition-colors" title="Reset Progres">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+                    <div id="pauseStatusText" class="text-[10px] text-amber-400 font-mono text-center h-3 transition-all opacity-0">
+                        ⏸️ Menjeda sebentar pada orde...
+                    </div>
+                </div>
+
+                <!-- Matrix Inspector section -->
+                <div class="space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-slate-300">Matriks Transformasi ($4 \times 4$)</label>
+                        <button onclick="copyMatrixToClipboard()" class="text-[11px] text-slate-400 hover:text-blue-400" title="Salin Matriks">
+                            <i class="fa-regular fa-copy"></i> Salin
+                        </button>
+                    </div>
+                    
+                    <div id="matrixDisplay" class="grid grid-cols-4 gap-1 p-1 bg-slate-900/90 rounded border border-slate-800/80">
+                        <!-- Filled dynamically by JavaScript -->
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </div>
+
+    <div id="infoModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-blue-400"></i> Panduan Operator Simetri Kristalografi
+                </h3>
+                <button onclick="toggleModal('infoModal')" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+                <p>
+                    Dalam kristalografi, <strong>operator simetri</strong> mentransformasikan pola atau kisi atom ke posisi baru yang ekuivalen secara struktural. Simulasi ini mendukung 6 jenis operasi simetri dasar:
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <h4 class="font-bold text-cyan-400 mb-1">1. Mirror (Cermin - $m$)</h4>
+                        <p class="text-[11px] text-slate-400">Pencerminan tegak lurus terhadap suatu bidang cermin. Mengubah kiralitas objek (tangan kanan menjadi tangan kiri).</p>
+                    </div>
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <h4 class="font-bold text-emerald-400 mb-1">2. Rotation (Rotasi - $n$)</h4>
+                        <p class="text-[11px] text-slate-400">Rotasi sebesar angle $\theta = 360^\circ / n$ mengelilingi sumbu putar ($n = 1, 2, 3, 4, 6$).</p>
+                    </div>
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <h4 class="font-bold text-purple-400 mb-1">3. Rotoreflection ($S_n$)</h4>
+                        <p class="text-[11px] text-slate-400">Kombinasi rotasi $360^\circ / n$ diikuti pencerminan tegak lurus terhadap sumbu rotasi.</p>
+                    </div>
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <h4 class="font-bold text-amber-400 mb-1">4. Rotoinversion ($\bar{n}$)</h4>
+                        <p class="text-[11px] text-slate-400">Kombinasi rotasi $360^\circ / n$ diikuti inversi terhadap titik pusat $(0,0,0)$.</p>
+                    </div>
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <h4 class="font-bold text-indigo-400 mb-1">5. Screw Axis (Sumbu Sekrup - $n_m$)</h4>
+                        <p class="text-[11px] text-slate-400">Rotasi $360^\circ / n$ diikuti translasi sejajar sumbu rotasi sebesar fraksi $m/n$ dari vektor translasi kisi.</p>
+                    </div>
+                    <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                        <h4 class="font-bold text-rose-400 mb-1">6. Glide Plane (Bidang Geser)</h4>
+                        <p class="text-[11px] text-slate-400">Pencerminan terhadap bidang cermin diikuti translasi sejajar dengan bidang tersebut.</p>
+                    </div>
+                </div>
+
+                <div class="bg-blue-950/40 p-3 rounded-xl border border-blue-800/50 text-[11px] text-blue-200 mt-2">
+                    💡 <strong>Tips Interaksi:</strong> Gunakan mouse (Klik Kiri + Seret) untuk memutar sudut pandang 3D, Klik Kanan untuk pergeseran (pan), dan Scroll untuk Zoom in/out.
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-2 border-t border-slate-800">
+                <button onclick="toggleModal('infoModal')" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">Paham & Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Element -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg border border-blue-400/30 text-xs font-medium translate-y-20 opacity-0 transition-all duration-300 pointer-events-none flex items-center gap-2 z-50">
+        <i class="fa-solid fa-circle-check"></i>
+        <span id="toastMsg">Pesan berhasil</span>
+    </div>
+
+    <script>
+        // Global State & Variables
+        let scene, camera, renderer, controls;
+        let originalGroup, transformedGroup, helperGroup, ghostStepsGroup;
+        
+        let currentOperator = 'mirror'; // 'mirror', 'rotation', 'rotoreflection', 'rotoinversion', 'screw', 'glide'
+        let currentFold = 4;           // 1, 2, 3, 4, 6
+        let screwIndex = 1;            // m for n_m
+        let vectorU = 0, vectorV = 0, vectorW = 1; // Direction vector or plane normal
+        let translationMag = 1.0;      // Translation step magnitude
+        let animProgress = 1.0;        // Normalized 0.0 to 1.0 representing full cycle
+        let isAnimating = false;
+        let currentMotif = 'asymmetric_unit';
+
+        // Full rotation step and pause controls
+        let pauseTimer = 0;
+        let isPausedAtStep = false;
+        let lastReachedStep = 0;
+        const PAUSE_DURATION_MS = 600; // Pause duration in milliseconds at each fold step
+
+        // Target transformation matrix (4x4)
+        let targetMatrix = new THREE.Matrix4();
+
+        window.addEventListener('load', () => {
+            initThreeJS();
+            setupUIControls();
+            updateScrewIndexOptions();
+            recalculateSymmetry();
+            animate();
+        });
+
+        function setupUIControls() {
+            syncVectorUI();
+            setFold(currentFold);
+            setOperator(currentOperator);
+        }
+
+        // Initialize Three.js Scene, Lights, Camera and Controls
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0f1d);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(4, 3, 5);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight1.position.set(10, 15, 10);
+            dirLight1.castShadow = true;
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 0.4);
+            dirLight2.position.set(-10, -10, -10);
+            scene.add(dirLight2);
+
+            // Coordinate Axis Helper & Grid
+            const gridHelper = new THREE.GridHelper(10, 20, 0x334155, 0x1e293b);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            // Main Groups for Scene Objects
+            originalGroup = new THREE.Group();
+            transformedGroup = new THREE.Group();
+            helperGroup = new THREE.Group();
+            ghostStepsGroup = new THREE.Group();
+
+            scene.add(originalGroup);
+            scene.add(transformedGroup);
+            scene.add(helperGroup);
+            scene.add(ghostStepsGroup);
+
+            // Build Initial Motif Objets
+            buildMotifObjects();
+
+            // Handle Resize
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildMotifObjects() {
+            // Clear existing
+            while (originalGroup.children.length > 0) originalGroup.remove(originalGroup.children[0]);
+            while (transformedGroup.children.length > 0) transformedGroup.remove(transformedGroup.children[0]);
+
+            // Base material for original object
+            const origMat = new THREE.MeshStandardMaterial({
+                color: 0x3b82f6,
+                transparent: true,
+                opacity: 0.45,
+                roughness: 0.3
+            });
+
+            // Highlighted tip material for original object (bright red tip)
+            const origTipMat = new THREE.MeshStandardMaterial({
+                color: 0xef4444,
+                emissive: 0x991b1b,
+                emissiveIntensity: 0.5,
+                roughness: 0.2
+            });
+
+            // Base material for transformed object
+            const transMat = new THREE.MeshStandardMaterial({
+                color: 0xf59e0b,
+                metalness: 0.2,
+                roughness: 0.2,
+                emissive: 0xd97706,
+                emissiveIntensity: 0.2
+            });
+
+            // Highlighted tip material for transformed object (bright yellow/gold tip)
+            const transTipMat = new THREE.MeshStandardMaterial({
+                color: 0xfacc15,
+                emissive: 0xca8a04,
+                emissiveIntensity: 0.7,
+                roughness: 0.2
+            });
+
+            let origMesh, transMesh;
+
+            if (currentMotif === 'asymmetric_unit') {
+                origMesh = createAsymmetricMotifMesh(origMat, origTipMat);
+                transMesh = createAsymmetricMotifMesh(transMat, transTipMat);
+            } else if (currentMotif === 'tetrahedron') {
+                origMesh = createTetrahedronMotif(origMat, origTipMat);
+                transMesh = createTetrahedronMotif(transMat, transTipMat);
+            } else if (currentMotif === 'quartz_crystal') {
+                origMesh = createQuartzCrystalMotif(origMat, origTipMat);
+                transMesh = createQuartzCrystalMotif(transMat, transTipMat);
+            } else { // lattice_points
+                origMesh = createLatticePointsMotif(origMat, origTipMat);
+                transMesh = createLatticePointsMotif(transMat, transTipMat);
+            }
+
+            originalGroup.add(origMesh);
+            transformedGroup.add(transMesh);
+        }
+
+        function createAsymmetricMotifMesh(material, tipMaterial) {
+            const group = new THREE.Group();
+
+            // Main pyramid body
+            const geom = new THREE.ConeGeometry(0.5, 1.2, 4);
+            const mesh = new THREE.Mesh(geom, material);
+            mesh.position.set(0.6, 0.6, 0.6);
+            mesh.rotation.x = Math.PI / 6;
+            group.add(mesh);
+
+            // Distinct highlighted tip sphere at the apex for tracking initial vs new position
+            const tipGeom = new THREE.SphereGeometry(0.22, 16, 16);
+            const tipMesh = new THREE.Mesh(tipGeom, tipMaterial);
+            tipMesh.position.set(0.8, 1.25, 0.8);
+            group.add(tipMesh);
+
+            // Small side flag indicator with tip marker
+            const armGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.6);
+            const armMesh = new THREE.Mesh(armGeom, material);
+            armMesh.position.set(0.9, 0.6, 0.6);
+            armMesh.rotation.z = Math.PI / 2;
+            group.add(armMesh);
+
+            const flagTipGeom = new THREE.SphereGeometry(0.12, 12, 12);
+            const flagTipMesh = new THREE.Mesh(flagTipGeom, tipMaterial);
+            flagTipMesh.position.set(1.2, 0.6, 0.6);
+            group.add(flagTipMesh);
+
+            return group;
+        }
+
+        function createTetrahedronMotif(material, tipMaterial) {
+            const group = new THREE.Group();
+            const geom = new THREE.TetrahedronGeometry(0.7);
+            const mesh = new THREE.Mesh(geom, material);
+            mesh.position.set(0.5, 0.5, 0.5);
+            group.add(mesh);
+
+            // Highlight apex vertex of the tetrahedron
+            const tipGeom = new THREE.SphereGeometry(0.18, 16, 16);
+            const tipMesh = new THREE.Mesh(tipGeom, tipMaterial);
+            tipMesh.position.set(0.5 + 0.7 * 0.577, 0.5 + 0.7 * 0.577, 0.5 + 0.7 * 0.577);
+            group.add(tipMesh);
+
+            return group;
+        }
+
+        function createQuartzCrystalMotif(material, tipMaterial) {
+            const group = new THREE.Group();
+            const geom = new THREE.CylinderGeometry(0.4, 0.4, 1.0, 6);
+            const mesh = new THREE.Mesh(geom, material);
+            
+            // Highlighted termination pyramid cap at top end
+            const capGeom = new THREE.ConeGeometry(0.4, 0.5, 6);
+            const capMesh = new THREE.Mesh(capGeom, tipMaterial);
+            capMesh.position.y = 0.75;
+            
+            group.add(mesh);
+            group.add(capMesh);
+
+            // Additional small tip sphere at apex
+            const tipGeom = new THREE.SphereGeometry(0.12, 12, 12);
+            const tipMesh = new THREE.Mesh(tipGeom, tipMaterial);
+            tipMesh.position.y = 1.0;
+            group.add(tipMesh);
+
+            group.position.set(0.5, 0.5, 0.5);
+            return group;
+        }
+
+        function createLatticePointsMotif(material, tipMaterial) {
+            const group = new THREE.Group();
+            const sphereGeom = new THREE.SphereGeometry(0.12, 16, 16);
+            
+            const offsets = [
+                [0.4, 0.4, 0.4],
+                [0.8, 0.4, 0.4],
+                [0.4, 0.4, 0.8]
+            ];
+
+            offsets.forEach(pos => {
+                const sp = new THREE.Mesh(sphereGeom, material);
+                sp.position.set(...pos);
+                group.add(sp);
+            });
+
+            // Highlighted top vertex point
+            const topTipGeom = new THREE.SphereGeometry(0.2, 16, 16);
+            const topTipMesh = new THREE.Mesh(topTipGeom, tipMaterial);
+            topTipMesh.position.set(0.4, 0.8, 0.4);
+            group.add(topTipMesh);
+
+            // Connect lines
+            const lineMat = new THREE.LineBasicMaterial({ color: material.color, transparent: true, opacity: 0.6 });
+            const points = [
+                new THREE.Vector3(0.4, 0.4, 0.4), new THREE.Vector3(0.8, 0.4, 0.4),
+                new THREE.Vector3(0.4, 0.4, 0.4), new THREE.Vector3(0.4, 0.8, 0.4),
+                new THREE.Vector3(0.4, 0.4, 0.4), new THREE.Vector3(0.4, 0.4, 0.8)
+            ];
+            const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+            const lines = new THREE.LineSegments(lineGeom, lineMat);
+            group.add(lines);
+
+            return group;
+        }
+
+        function getNormalizedVector() {
+            let vec = new THREE.Vector3(vectorU, vectorV, vectorW);
+            if (vec.lengthSq() < 0.0001) vec.set(0, 0, 1); // fallback to Z axis
+            return vec.normalize();
+        }
+
+        function getTotalSteps() {
+            if (currentOperator === 'mirror' || currentOperator === 'glide') {
+                return 1;
+            }
+            return currentFold || 1;
+        }
+
+        function recalculateSymmetry() {
+            targetMatrix.copy(computeMatrixForProgress(1.0));
+
+            // Update 3D Helpers (Planes, Axes, Center dots)
+            updateHelperGraphics();
+
+            // Update UI Information & Matrix Table
+            updateMatrixDisplay();
+            updateHMSymbol();
+
+            // Apply transformation based on current animation progress
+            applyCurrentProgressTransformation();
+            
+            // Clear ghost steps until user initiates animation playback
+            clearGhostSteps();
+        }
+
+        function clearGhostSteps() {
+            if (!ghostStepsGroup) return;
+            while (ghostStepsGroup.children.length > 0) {
+                const child = ghostStepsGroup.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                    if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                    else child.material.dispose();
+                }
+                ghostStepsGroup.remove(child);
+            }
+        }
+
+        function addGhostStepMesh(stepNum) {
+            if (!ghostStepsGroup) return;
+            const totalSteps = getTotalSteps();
+            const progressVal = stepNum / totalSteps;
+            const stepMatrix = computeMatrixForProgress(progressVal);
+
+            // Emerald green semi-transparent material for step pause objects
+            const ghostMat = new THREE.MeshStandardMaterial({
+                color: 0x10b981,
+                transparent: true,
+                opacity: 0.55,
+                roughness: 0.3,
+                emissive: 0x047857,
+                emissiveIntensity: 0.4
+            });
+
+            const ghostTipMat = new THREE.MeshStandardMaterial({
+                color: 0x34d399,
+                emissive: 0x059669,
+                emissiveIntensity: 0.8,
+                roughness: 0.2
+            });
+
+            let ghostMesh;
+            if (currentMotif === 'asymmetric_unit') {
+                ghostMesh = createAsymmetricMotifMesh(ghostMat, ghostTipMat);
+            } else if (currentMotif === 'tetrahedron') {
+                ghostMesh = createTetrahedronMotif(ghostMat, ghostTipMat);
+            } else if (currentMotif === 'quartz_crystal') {
+                ghostMesh = createQuartzCrystalMotif(ghostMat, ghostTipMat);
+            } else {
+                ghostMesh = createLatticePointsMotif(ghostMat, ghostTipMat);
+            }
+
+            ghostMesh.matrixAutoUpdate = false;
+            ghostMesh.matrix.copy(stepMatrix);
+            ghostStepsGroup.add(ghostMesh);
+        }
+
+        function updateGhostStepsForProgress() {
+            clearGhostSteps();
+            const totalSteps = getTotalSteps();
+            if (totalSteps <= 1) return;
+
+            const completedSteps = Math.floor(animProgress * totalSteps);
+            for (let k = 1; k <= completedSteps; k++) {
+                addGhostStepMesh(k);
+            }
+        }
+
+        function updateVisibilities() {
+            originalGroup.visible = document.getElementById('chkShowOriginal').checked;
+            helperGroup.visible = document.getElementById('chkShowHelper').checked;
+            if (ghostStepsGroup) {
+                ghostStepsGroup.visible = document.getElementById('chkShowSteps').checked;
+            }
+        }
+
+        function onAnimSliderInput(val) {
+            animProgress = parseFloat(val);
+            document.getElementById('animPercent').innerText = `${Math.round(animProgress * 100)}%`;
+            applyCurrentProgressTransformation();
+            updateGhostStepsForProgress();
+        }
+
+        function togglePlayAnimation() {
+            isAnimating = !isAnimating;
+            const btnText = document.getElementById('playText');
+            const playIcon = document.getElementById('playIcon');
+
+            if (isAnimating) {
+                if (animProgress >= 1.0) {
+                    animProgress = 0;
+                    lastReachedStep = 0;
+                    clearGhostSteps();
+                }
+                btnText.innerText = 'Jeda (Pause)';
+                playIcon.className = 'fa-solid fa-pause';
+            } else {
+                btnText.innerText = 'Putar Putaran Penuh';
+                playIcon.className = 'fa-solid fa-play';
+                hidePauseStatus();
+            }
+        }
+
+        function resetAnimProgress() {
+            isAnimating = false;
+            isPausedAtStep = false;
+            animProgress = 1.0;
+            lastReachedStep = 0;
+            document.getElementById('animProgress').value = 1.0;
+            document.getElementById('animPercent').innerText = '100%';
+            document.getElementById('playText').innerText = 'Putar Putaran Penuh';
+            document.getElementById('playIcon').className = 'fa-solid fa-play';
+            hidePauseStatus();
+            applyCurrentProgressTransformation();
+            updateGhostStepsForProgress();
+        }
+
+        function computeMatrixForProgress(progressVal) {
+            const axis = getNormalizedVector();
+            const totalSteps = getTotalSteps();
+            
+            // Total continuous step parameter t from 0.0 to totalSteps
+            const t = progressVal * totalSteps;
+            const angle = ((2 * Math.PI) / currentFold) * t;
+            const mat = new THREE.Matrix4();
+
+            if (currentOperator === 'mirror') {
+                const nx = axis.x, ny = axis.y, nz = axis.z;
+                const mirrorMat = new THREE.Matrix4().set(
+                    1 - 2*nx*nx,  -2*nx*ny,   -2*nx*nz,   0,
+                     -2*nx*ny,  1 - 2*ny*ny,  -2*ny*nz,   0,
+                     -2*nx*nz,   -2*ny*nz,  1 - 2*nz*nz,  0,
+                        0,           0,          0,       1
+                );
+                mat.identity();
+                const idEl = mat.elements;
+                const mirEl = mirrorMat.elements;
+                for (let i = 0; i < 16; i++) {
+                    idEl[i] = (1 - progressVal) * idEl[i] + progressVal * mirEl[i];
+                }
+
+            } else if (currentOperator === 'rotation') {
+                mat.makeRotationAxis(axis, angle);
+
+            } else if (currentOperator === 'rotoreflection') {
+                // Rotoreflection S_n: Rotation by angle = (360/n)*t around axis,
+                // followed by reflection across plane perpendicular to axis.
+                mat.makeRotationAxis(axis, angle);
+
+                const nx = axis.x, ny = axis.y, nz = axis.z;
+                const refTarget = new THREE.Matrix4().set(
+                    1 - 2*nx*nx,  -2*nx*ny,   -2*nx*nz,   0,
+                     -2*nx*ny,  1 - 2*ny*ny,  -2*ny*nz,   0,
+                     -2*nx*nz,   -2*ny*nz,  1 - 2*nz*nz,  0,
+                        0,           0,          0,       1
+                );
+
+                // Trigonometric smooth reflection factor cos(pi * t):
+                // At integer step k: cos(k*pi) = (-1)^k. Even k -> +1 (no ref), Odd k -> -1 (full reflection)
+                const scaleVal = Math.cos(Math.PI * t);
+                const refM = new THREE.Matrix4().identity();
+                const rEl = refM.elements;
+
+                rEl[0] = 1 + (refTarget.elements[0] - 1) * 0.5 * (1 - scaleVal);
+                rEl[1] = (refTarget.elements[1]) * 0.5 * (1 - scaleVal);
+                rEl[2] = (refTarget.elements[2]) * 0.5 * (1 - scaleVal);
+                rEl[4] = (refTarget.elements[4]) * 0.5 * (1 - scaleVal);
+                rEl[5] = 1 + (refTarget.elements[5] - 1) * 0.5 * (1 - scaleVal);
+                rEl[6] = (refTarget.elements[6]) * 0.5 * (1 - scaleVal);
+                rEl[8] = (refTarget.elements[8]) * 0.5 * (1 - scaleVal);
+                rEl[9] = (refTarget.elements[9]) * 0.5 * (1 - scaleVal);
+                rEl[10] = 1 + (refTarget.elements[10] - 1) * 0.5 * (1 - scaleVal);
+
+                mat.premultiply(refM);
+
+            } else if (currentOperator === 'rotoinversion') {
+                // Rotoinversion n_bar: Rotation by angle = (360/n)*t around axis,
+                // followed by inversion through origin (0,0,0).
+                mat.makeRotationAxis(axis, angle);
+
+                // Continuous inversion factor cos(pi * t):
+                // At integer step k: cos(k*pi) = (-1)^k. Even k -> +1, Odd k -> -1 (inverted -x,-y,-z)
+                const invScale = Math.cos(Math.PI * t);
+                const invM = new THREE.Matrix4().makeScale(invScale, invScale, invScale);
+
+                mat.premultiply(invM);
+
+            } else if (currentOperator === 'screw') {
+                const rotM = new THREE.Matrix4().makeRotationAxis(axis, angle);
+                const shiftDist = (screwIndex / currentFold) * translationMag * t;
+                const transVec = axis.clone().multiplyScalar(shiftDist);
+                const transM = new THREE.Matrix4().makeTranslation(transVec.x, transVec.y, transVec.z);
+                mat.multiplyMatrices(transM, rotM);
+
+            } else if (currentOperator === 'glide') {
+                const nx = axis.x, ny = axis.y, nz = axis.z;
+                const refTarget = new THREE.Matrix4().set(
+                    1 - 2*nx*nx,  -2*nx*ny,   -2*nx*nz,   0,
+                     -2*nx*ny,  1 - 2*ny*ny,  -2*ny*nz,   0,
+                     -2*nx*nz,   -2*ny*nz,  1 - 2*nz*nz,  0,
+                        0,           0,          0,       1
+                );
+                const refM = new THREE.Matrix4().identity();
+                for (let i = 0; i < 16; i++) {
+                    refM.elements[i] = (1 - progressVal) * refM.elements[i] + progressVal * refTarget.elements[i];
+                }
+
+                let tangent = new THREE.Vector3(1, 0, 0);
+                if (Math.abs(axis.dot(tangent)) > 0.9) {
+                    tangent.set(0, 1, 0);
+                }
+                tangent.addScaledVector(axis, -axis.dot(tangent)).normalize();
+
+                const transVec = tangent.clone().multiplyScalar(translationMag * 0.5 * progressVal);
+                const transM = new THREE.Matrix4().makeTranslation(transVec.x, transVec.y, transVec.z);
+
+                mat.multiplyMatrices(transM, refM);
+            }
+
+            return mat;
+        }
+
+        function applyCurrentProgressTransformation() {
+            const curMat = computeMatrixForProgress(animProgress);
+            transformedGroup.matrixAutoUpdate = false;
+            transformedGroup.matrix.copy(curMat);
+
+            // Update UI step badge
+            const totalSteps = getTotalSteps();
+            const currentStepNum = Math.min(totalSteps, Math.floor(animProgress * totalSteps) + 1);
+            const stepDeg = (360 / currentFold * (animProgress * totalSteps)).toFixed(0);
+            
+            const badgeEl = document.getElementById('stepBadge');
+            if (badgeEl) {
+                if (currentOperator === 'mirror' || currentOperator === 'glide') {
+                    badgeEl.innerText = `Langkah 1/1`;
+                } else {
+                    badgeEl.innerText = `Orde ${currentStepNum}/${totalSteps} (${stepDeg}°)`;
+                }
+            }
+        }
+
+        function updateHMSymbol() {
+            const titleEl = document.getElementById('activeOpTitle');
+            const symbolEl = document.getElementById('hmSymbol');
+            const descEl = document.getElementById('opDescription');
+
+            if (currentOperator === 'mirror') {
+                titleEl.innerText = 'Cermin (Mirror)';
+                symbolEl.innerText = 'm';
+                descEl.innerText = 'Merefleksikan objek terhadap bidang cermin normal (u,v,w). Menukar kiralitas tangan. Perhatikan posisi penanda merah vs kuning!';
+            } else if (currentOperator === 'rotation') {
+                titleEl.innerText = `Rotasi ${currentFold}-Lipat`;
+                symbolEl.innerText = `${currentFold}`;
+                descEl.innerText = `Memutar objek 1 putaran penuh (360°) dengan jeda singkat pada setiap orde (${currentFold} tahap × ${(360/currentFold).toFixed(1)}°).`;
+            } else if (currentOperator === 'rotoreflection') {
+                titleEl.innerText = `Rotorifleksi S${currentFold}`;
+                symbolEl.innerText = `S${currentFold}`;
+                descEl.innerText = `Kombinasi rotasi bertahap ${(360/currentFold).toFixed(1)}° diikuti pencerminan terhadap bidang tegak lurus sumbu (bidang ungu). Objek bertukar kiralitas pada orde ganjil.`;
+            } else if (currentOperator === 'rotoinversion') {
+                titleEl.innerText = `Rotoinversi ${currentFold}̄`;
+                symbolEl.innerText = `${currentFold}̄`;
+                descEl.innerText = `Kombinasi rotasi bertahap ${(360/currentFold).toFixed(1)}° diikuti inversi simetris terhadap pusat (0,0,0) (bola emas). Koordinat (x,y,z) membalik menjadi (-x,-y,-z) pada orde ganjil.`;
+            } else if (currentOperator === 'screw') {
+                titleEl.innerText = `Sumbu Sekrup ${currentFold}_${screwIndex}`;
+                symbolEl.innerText = `${currentFold}₃`.replace('3', screwIndex);
+                descEl.innerText = `Rotasi bertahap ${(360/currentFold).toFixed(1)}° ditambah pergeseran heliks sejauh ${screwIndex}/${currentFold} per tahap.`;
+            } else if (currentOperator === 'glide') {
+                titleEl.innerText = 'Bidang Geser (Glide Plane)';
+                symbolEl.innerText = 'a / b / c / n';
+                descEl.innerText = 'Pencerminan terhadap bidang datar diikuti translasi setengah panjang kisi paralel ke bidang.';
+            }
+        }
+
+        function setOperator(op) {
+            currentOperator = op;
+
+            document.querySelectorAll('.op-tab-btn').forEach(btn => btn.classList.remove('active', 'bg-blue-600/30', 'border-blue-500', 'text-white'));
+            const activeBtn = document.getElementById(`btn-${op}`);
+            if (activeBtn) activeBtn.classList.add('active', 'bg-blue-600/30', 'border-blue-500', 'text-white');
+
+            const foldContainer = document.getElementById('foldOrderContainer');
+            const screwContainer = document.getElementById('screwIndexContainer');
+            const transContainer = document.getElementById('translationContainer');
+
+            foldContainer.style.display = (op === 'mirror' || op === 'glide') ? 'none' : 'block';
+            screwContainer.style.display = (op === 'screw') ? 'block' : 'none';
+            transContainer.style.display = (op === 'screw' || op === 'glide') ? 'block' : 'none';
+
+            recalculateSymmetry();
+        }
+
+        function setFold(n) {
+            currentFold = n;
+            if (screwIndex >= n) screwIndex = 1;
+
+            document.querySelectorAll('.fold-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                if (btn.innerText.trim() === String(n)) {
+                    btn.classList.add('bg-blue-600', 'text-white');
+                }
+            });
+
+            document.getElementById('foldDegreeBadge').innerText = `360° / ${n} = ${(360/n).toFixed(1)}°`;
+
+            updateScrewIndexOptions();
+            recalculateSymmetry();
+        }
+
+        function updateScrewIndexOptions() {
+            const container = document.getElementById('screwIndexButtons');
+            if (!container) return;
+            container.innerHTML = '';
+
+            for (let m = 1; m < currentFold; m++) {
+                const btn = document.createElement('button');
+                btn.className = `flex-1 py-1 text-xs font-semibold rounded bg-slate-800 border border-slate-700 hover:bg-slate-700 ${m === screwIndex ? 'bg-indigo-600 text-white' : ''}`;
+                btn.innerText = `m = ${m}`;
+                btn.onclick = () => {
+                    screwIndex = m;
+                    updateScrewIndexOptions();
+                    recalculateSymmetry();
+                };
+                container.appendChild(btn);
+            }
+        }
+
+        function setVectorPreset(u, v, w) {
+            vectorU = u; vectorV = v; vectorW = w;
+            syncVectorUI();
+            recalculateSymmetry();
+        }
+
+        function syncVectorUI() {
+            document.getElementById('vecX_slider').value = vectorU;
+            document.getElementById('vecX_num').value = vectorU;
+            document.getElementById('vecY_slider').value = vectorV;
+            document.getElementById('vecY_num').value = vectorV;
+            document.getElementById('vecZ_slider').value = vectorW;
+            document.getElementById('vecZ_num').value = vectorW;
+        }
+
+        function syncVecFromSlider(axis) {
+            const val = parseFloat(document.getElementById(`vec${axis}_slider`).value);
+            document.getElementById(`vec${axis}_num`).value = val;
+            if (axis === 'X') vectorU = val;
+            if (axis === 'Y') vectorV = val;
+            if (axis === 'Z') vectorW = val;
+            recalculateSymmetry();
+        }
+
+        function syncVecFromNum(axis) {
+            const val = parseFloat(document.getElementById(`vec${axis}_num`).value) || 0;
+            document.getElementById(`vec${axis}_slider`).value = val;
+            if (axis === 'X') vectorU = val;
+            if (axis === 'Y') vectorV = val;
+            if (axis === 'Z') vectorW = val;
+            recalculateSymmetry();
+        }
+
+        function updateTranslationFromSlider() {
+            translationMag = parseFloat(document.getElementById('transSlider').value);
+            document.getElementById('transNum').value = translationMag;
+            document.getElementById('transValBadge').innerText = `${translationMag.toFixed(1)} unit`;
+            recalculateSymmetry();
+        }
+
+        function updateTranslationFromNum() {
+            translationMag = parseFloat(document.getElementById('transNum').value) || 0;
+            document.getElementById('transSlider').value = translationMag;
+            document.getElementById('transValBadge').innerText = `${translationMag.toFixed(1)} unit`;
+            recalculateSymmetry();
+        }
+
+        function changeMotif(val) {
+            currentMotif = val;
+            buildMotifObjects();
+            recalculateSymmetry();
+        }
+
+        function updateVisibilities() {
+            originalGroup.visible = document.getElementById('chkShowOriginal').checked;
+            helperGroup.visible = document.getElementById('chkShowHelper').checked;
+        }
+
+        function onAnimSliderInput(val) {
+            animProgress = parseFloat(val);
+            document.getElementById('animPercent').innerText = `${Math.round(animProgress * 100)}%`;
+            applyCurrentProgressTransformation();
+        }
+
+        function togglePlayAnimation() {
+            isAnimating = !isAnimating;
+            const btnText = document.getElementById('playText');
+            const playIcon = document.getElementById('playIcon');
+
+            if (isAnimating) {
+                if (animProgress >= 1.0) {
+                    animProgress = 0;
+                    lastReachedStep = 0;
+                    clearGhostSteps();
+                }
+                btnText.innerText = 'Jeda (Pause)';
+                playIcon.className = 'fa-solid fa-pause';
+            } else {
+                btnText.innerText = 'Putar Putaran Penuh';
+                playIcon.className = 'fa-solid fa-play';
+                hidePauseStatus();
+            }
+        }
+
+        function resetAnimProgress() {
+            isAnimating = false;
+            isPausedAtStep = false;
+            animProgress = 1.0;
+            lastReachedStep = 0;
+            document.getElementById('animProgress').value = 1.0;
+            document.getElementById('animPercent').innerText = '100%';
+            document.getElementById('playText').innerText = 'Putar Putaran Penuh';
+            document.getElementById('playIcon').className = 'fa-solid fa-play';
+            hidePauseStatus();
+            applyCurrentProgressTransformation();
+            clearGhostSteps();
+        }
+
+        function showPauseStatus(stepNum, totalSteps) {
+            const statusEl = document.getElementById('pauseStatusText');
+            if (statusEl) {
+                const stepDeg = Math.round((360 / currentFold) * stepNum);
+                statusEl.innerText = `⏸️ Menjeda sebentar pada Orde ${stepNum}/${totalSteps} (${stepDeg}°)...`;
+                statusEl.classList.remove('opacity-0');
+            }
+        }
+
+        function hidePauseStatus() {
+            const statusEl = document.getElementById('pauseStatusText');
+            if (statusEl) {
+                statusEl.classList.add('opacity-0');
+            }
+        }
+
+        function updateHelperGraphics() {
+            while (helperGroup.children.length > 0) {
+                const obj = helperGroup.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) {
+                    if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+                    else obj.material.dispose();
+                }
+                helperGroup.remove(obj);
+            }
+
+            const axis = getNormalizedVector();
+
+            if (currentOperator === 'mirror' || currentOperator === 'glide') {
+                const planeGeom = new THREE.PlaneGeometry(4, 4);
+                const planeMat = new THREE.MeshBasicMaterial({
+                    color: 0x34d399,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.25,
+                    depthWrite: false
+                });
+                const planeMesh = new THREE.Mesh(planeGeom, planeMat);
+                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
+                helperGroup.add(planeMesh);
+
+                const wireGeom = new THREE.EdgesGeometry(planeGeom);
+                const wireMat = new THREE.LineBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.6 });
+                const wireframe = new THREE.LineSegments(wireGeom, wireMat);
+                wireframe.quaternion.copy(planeMesh.quaternion);
+                helperGroup.add(wireframe);
+
+                const arrowHelper = new THREE.ArrowHelper(axis, new THREE.Vector3(0, 0, 0), 2, 0xef4444, 0.3, 0.2);
+                helperGroup.add(arrowHelper);
+
+            } else if (currentOperator === 'rotoreflection') {
+                // Rotoreflection S_n Helper: Both Rotation Axis + Perpendicular Reflection Plane
+                const axisLength = 6;
+                const lineGeom = new THREE.BufferGeometry().setFromPoints([
+                    axis.clone().multiplyScalar(-axisLength / 2),
+                    axis.clone().multiplyScalar(axisLength / 2)
+                ]);
+                const lineMat = new THREE.LineDashedMaterial({
+                    color: 0xc084fc,
+                    dashSize: 0.2,
+                    gapSize: 0.1,
+                    linewidth: 2
+                });
+                const line = new THREE.Line(lineGeom, lineMat);
+                line.computeLineDistances();
+                helperGroup.add(line);
+
+                const arrowHelper = new THREE.ArrowHelper(axis, new THREE.Vector3(0, 0, 0), 2.5, 0xc084fc, 0.3, 0.2);
+                helperGroup.add(arrowHelper);
+
+                // Perpendicular Reflection Plane (Purple)
+                const planeGeom = new THREE.CircleGeometry(2.2, 32);
+                const planeMat = new THREE.MeshBasicMaterial({
+                    color: 0xa855f7,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: 0.3,
+                    depthWrite: false
+                });
+                const planeMesh = new THREE.Mesh(planeGeom, planeMat);
+                planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
+                helperGroup.add(planeMesh);
+
+                const wireGeom = new THREE.EdgesGeometry(planeGeom);
+                const wireMat = new THREE.LineBasicMaterial({ color: 0xd8b4fe, transparent: true, opacity: 0.8 });
+                const wireframe = new THREE.LineSegments(wireGeom, wireMat);
+                wireframe.quaternion.copy(planeMesh.quaternion);
+                helperGroup.add(wireframe);
+
+            } else {
+                // Rotation, Screw, Rotoinversion Helper
+                const axisLength = 6;
+                const lineGeom = new THREE.BufferGeometry().setFromPoints([
+                    axis.clone().multiplyScalar(-axisLength / 2),
+                    axis.clone().multiplyScalar(axisLength / 2)
+                ]);
+                const lineMat = new THREE.LineDashedMaterial({
+                    color: currentOperator === 'rotoinversion' ? 0xf59e0b : 0x38bdf8,
+                    dashSize: 0.2,
+                    gapSize: 0.1,
+                    linewidth: 2
+                });
+                const line = new THREE.Line(lineGeom, lineMat);
+                line.computeLineDistances();
+                helperGroup.add(line);
+
+                const arrowColor = currentOperator === 'rotoinversion' ? 0xf59e0b : 0x38bdf8;
+                const arrowHelper = new THREE.ArrowHelper(axis, new THREE.Vector3(0, 0, 0), 2.5, arrowColor, 0.3, 0.2);
+                helperGroup.add(arrowHelper);
+
+                if (currentOperator === 'rotoinversion') {
+                    // Center of Inversion Sphere (Glowing Amber Gold)
+                    const centerGeom = new THREE.SphereGeometry(0.18, 24, 24);
+                    const centerMat = new THREE.MeshStandardMaterial({
+                        color: 0xfbbf24,
+                        emissive: 0xd97706,
+                        emissiveIntensity: 0.8,
+                        roughness: 0.2
+                    });
+                    const centerMesh = new THREE.Mesh(centerGeom, centerMat);
+                    helperGroup.add(centerMesh);
+
+                    // Outer Aura Ring at Inversion Center
+                    const ringGeom = new THREE.RingGeometry(0.25, 0.32, 32);
+                    const ringMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+                    const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+                    ringMesh.lookAt(axis);
+                    helperGroup.add(ringMesh);
+
+                    // Inversion Ray Visualizer (Dotted Line passing through Center)
+                    const rayGeom = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(-1.2, -1.2, -1.2),
+                        new THREE.Vector3(1.2, 1.2, 1.2)
+                    ]);
+                    const rayMat = new THREE.LineDashedMaterial({ color: 0xfce7f3, dashSize: 0.1, gapSize: 0.08 });
+                    const rayLine = new THREE.Line(rayGeom, rayMat);
+                    rayLine.computeLineDistances();
+                    helperGroup.add(rayLine);
+                }
+            }
+        }
+
+        function updateMatrixDisplay() {
+            const container = document.getElementById('matrixDisplay');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            const el = targetMatrix.elements;
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const val = el[col * 4 + row];
+                    const div = document.createElement('div');
+                    div.className = 'matrix-cell text-center py-1 text-[11px] rounded text-slate-200 font-mono';
+                    div.innerText = Math.abs(val) < 0.0001 ? '0.00' : val.toFixed(2);
+                    container.appendChild(div);
+                }
+            }
+        }
+
+        function copyMatrixToClipboard() {
+            const el = targetMatrix.elements;
+            let text = '';
+            for (let row = 0; row < 4; row++) {
+                let rowStr = [];
+                for (let col = 0; col < 4; col++) {
+                    const val = el[col * 4 + row];
+                    rowStr.push((Math.abs(val) < 0.0001 ? 0 : val).toFixed(3));
+                }
+                text += rowStr.join('\t') + '\n';
+            }
+            
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('Matriks berhasil disalin!');
+            } catch (err) {
+                showToast('Gagal menyalin matriks');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            if (toast && toastMsg) {
+                toastMsg.innerText = msg;
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                setTimeout(() => {
+                    toast.classList.add('translate-y-20', 'opacity-0');
+                }, 2500);
+            }
+        }
+
+        function applyPreset(presetKey) {
+            if (presetKey === 'mirror_xy') {
+                setOperator('mirror');
+                setVectorPreset(0, 0, 1);
+            } else if (presetKey === 'rot_4_z') {
+                setOperator('rotation');
+                setFold(4);
+                setVectorPreset(0, 0, 1);
+            } else if (presetKey === 'rotoinv_3_z') {
+                setOperator('rotoinversion');
+                setFold(3);
+                setVectorPreset(0, 0, 1);
+            } else if (presetKey === 'rotoref_4_z') {
+                setOperator('rotoreflection');
+                setFold(4);
+                setVectorPreset(0, 0, 1);
+            } else if (presetKey === 'screw_4_1') {
+                setOperator('screw');
+                setFold(4);
+                screwIndex = 1;
+                updateScrewIndexOptions();
+                setVectorPreset(0, 0, 1);
+            } else if (presetKey === 'glide_a') {
+                setOperator('glide');
+                setVectorPreset(0, 0, 1);
+                translationMag = 1.0;
+                document.getElementById('transSlider').value = 1.0;
+                document.getElementById('transNum').value = 1.0;
+            }
+            resetAnimProgress();
+            document.getElementById('presetSelect').value = '';
+        }
+
+        function resetCamera() {
+            if (camera && controls) {
+                camera.position.set(4, 3, 5);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            }
+        }
+
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.toggle('hidden');
+            }
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (!container || !camera || !renderer) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+
+            if (isAnimating) {
+                const totalSteps = getTotalSteps();
+
+                if (isPausedAtStep) {
+                    if (now - pauseTimer >= PAUSE_DURATION_MS) {
+                        isPausedAtStep = false;
+                        hidePauseStatus();
+                    }
+                } else {
+                    const speed = 0.005;
+                    animProgress += speed;
+
+                    const currentStepCalculated = Math.floor(animProgress * totalSteps);
+                    
+                    if (totalSteps > 1 && currentStepCalculated > lastReachedStep && currentStepCalculated < totalSteps) {
+                        lastReachedStep = currentStepCalculated;
+                        isPausedAtStep = true;
+                        pauseTimer = now;
+                        showPauseStatus(lastReachedStep, totalSteps);
+                        addGhostStepMesh(lastReachedStep);
+                    }
+
+                    if (animProgress >= 1.0) {
+                        animProgress = 1.0;
+                        isAnimating = false;
+                        document.getElementById('playText').innerText = 'Putar Putaran Penuh';
+                        document.getElementById('playIcon').className = 'fa-solid fa-play';
+                        hidePauseStatus();
+                    }
+
+                    document.getElementById('animProgress').value = animProgress;
+                    document.getElementById('animPercent').innerText = `${Math.round(animProgress * 100)}%`;
+                    applyCurrentProgressTransformation();
+                }
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
