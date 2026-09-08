@@ -72,21 +72,35 @@
 <body class="h-screen w-screen flex flex-col antialiased selection:bg-blue-500 selection:text-white">
 
     <header class="h-14 bg-slate-900/90 border-b border-slate-800/80 px-4 flex items-center justify-between z-20 backdrop-blur-md">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30">
+        <div class="flex items-center space-x-2 md:space-x-3">
+            <div class="w-8 h-8 rounded-lg flex-shrink-0 bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/30">
                 <i class="fa-solid font-mono text-sm"><i class="fa-solid fa-gem"></i></i>
             </div>
-            <div>
-                <h1 class="text-base font-bold text-slate-100 tracking-wide flex items-center gap-2">
-                    Simulasi Simetri Kristalografi 3D
-                    <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">Edu-Crystallography</span>
+            <div class="hidden sm:block">
+                <h1 class="text-sm md:text-base font-bold text-slate-100 tracking-wide flex items-center gap-2">
+                    Simetri 3D
+                    <span class="hidden md:inline-block text-xs font-normal px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">Edu-Crystallography</span>
                 </h1>
+            </div>
+            
+            <!-- Notation Mode Selector -->
+            <div class="flex items-center p-0.5 bg-slate-800/80 border border-slate-700 rounded-lg shrink-0">
+                <button onclick="setNotation('hm')" id="btn-not-hm" class="px-2 py-1 text-[10px] font-bold rounded bg-blue-600 text-white shadow-sm transition-colors">H-M</button>
+                <button onclick="setNotation('schoenflies')" id="btn-not-sc" class="px-2 py-1 text-[10px] font-bold rounded text-slate-400 hover:text-slate-200 transition-colors">Schönflies</button>
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 md:gap-2">
+            <!-- Manual Input -->
+            <div class="flex items-center border-r border-slate-700 pr-1 md:pr-2">
+                <input type="text" id="manualSymbolInput" placeholder="Simbol (m, C3, -4)" onkeydown="if(event.key === 'Enter') applyManualSymbol()" class="bg-slate-950 border border-slate-700 text-xs text-slate-200 rounded-l-lg px-2 py-1.5 w-28 md:w-32 focus:outline-none focus:border-blue-500 font-mono">
+                <button onclick="applyManualSymbol()" class="px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-medium rounded-r-lg transition-colors border-y border-r border-slate-700" title="Terapkan Simbol">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+
             <!-- Preset Quick Select -->
-            <div class="relative inline-block text-left">
+            <div class="relative hidden lg:inline-block text-left">
                 <select id="presetSelect" onchange="applyPreset(this.value)" class="bg-slate-800 text-xs text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
                     <option value="" disabled selected>⚡ Preset Operator...</option>
                     <option value="mirror_xy">Cermin (Bidang XY)</option>
@@ -337,28 +351,28 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                     <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <h4 class="font-bold text-cyan-400 mb-1">1. Mirror (Cermin - $m$)</h4>
-                        <p class="text-[11px] text-slate-400">Pencerminan tegak lurus terhadap suatu bidang cermin. Mengubah kiralitas objek (tangan kanan menjadi tangan kiri).</p>
+                        <h4 class="font-bold text-cyan-400 mb-1">1. Mirror (Cermin)</h4>
+                        <p class="text-[11px] text-slate-400"><strong>HM:</strong> $m$ | <strong>Schönflies:</strong> $\sigma$<br>Pencerminan tegak lurus terhadap suatu bidang cermin. Mengubah kiralitas objek (tangan kanan menjadi tangan kiri).</p>
                     </div>
                     <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <h4 class="font-bold text-emerald-400 mb-1">2. Rotation (Rotasi - $n$)</h4>
-                        <p class="text-[11px] text-slate-400">Rotasi sebesar angle $\theta = 360^\circ / n$ mengelilingi sumbu putar ($n = 1, 2, 3, 4, 6$).</p>
+                        <h4 class="font-bold text-emerald-400 mb-1">2. Rotation (Rotasi)</h4>
+                        <p class="text-[11px] text-slate-400"><strong>HM:</strong> $n$ | <strong>Schönflies:</strong> $C_n$<br>Rotasi sebesar angle $\theta = 360^\circ / n$ mengelilingi sumbu putar ($n = 1, 2, 3, 4, 6$).</p>
                     </div>
                     <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <h4 class="font-bold text-purple-400 mb-1">3. Rotoreflection ($S_n$)</h4>
-                        <p class="text-[11px] text-slate-400">Kombinasi rotasi $360^\circ / n$ diikuti pencerminan tegak lurus terhadap sumbu rotasi.</p>
+                        <h4 class="font-bold text-purple-400 mb-1">3. Rotoreflection</h4>
+                        <p class="text-[11px] text-slate-400"><strong>Schönflies:</strong> $S_n$<br>Kombinasi rotasi $360^\circ / n$ diikuti pencerminan tegak lurus terhadap sumbu rotasi.</p>
                     </div>
                     <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <h4 class="font-bold text-amber-400 mb-1">4. Rotoinversion ($\bar{n}$)</h4>
-                        <p class="text-[11px] text-slate-400">Kombinasi rotasi $360^\circ / n$ diikuti inversi terhadap titik pusat $(0,0,0)$.</p>
+                        <h4 class="font-bold text-amber-400 mb-1">4. Rotoinversion</h4>
+                        <p class="text-[11px] text-slate-400"><strong>HM:</strong> $\bar{n}$ | <strong>Schönflies:</strong> $i$ (untuk $\bar{1}$)<br>Kombinasi rotasi $360^\circ / n$ diikuti inversi terhadap titik pusat $(0,0,0)$.</p>
                     </div>
                     <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <h4 class="font-bold text-indigo-400 mb-1">5. Screw Axis (Sumbu Sekrup - $n_m$)</h4>
-                        <p class="text-[11px] text-slate-400">Rotasi $360^\circ / n$ diikuti translasi sejajar sumbu rotasi sebesar fraksi $m/n$ dari vektor translasi kisi.</p>
+                        <h4 class="font-bold text-indigo-400 mb-1">5. Screw Axis (Sekrup)</h4>
+                        <p class="text-[11px] text-slate-400"><strong>HM:</strong> $n_m$<br>Rotasi $360^\circ / n$ diikuti translasi sejajar sumbu rotasi sebesar fraksi $m/n$ dari vektor translasi kisi.</p>
                     </div>
                     <div class="p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
                         <h4 class="font-bold text-rose-400 mb-1">6. Glide Plane (Bidang Geser)</h4>
-                        <p class="text-[11px] text-slate-400">Pencerminan terhadap bidang cermin diikuti translasi sejajar dengan bidang tersebut.</p>
+                        <p class="text-[11px] text-slate-400"><strong>HM:</strong> $a, b, c, n, d$<br>Pencerminan terhadap bidang cermin diikuti translasi sejajar dengan bidang tersebut.</p>
                     </div>
                 </div>
 
@@ -392,6 +406,7 @@
         let animProgress = 1.0;        // Normalized 0.0 to 1.0 representing full cycle
         let isAnimating = false;
         let currentMotif = 'asymmetric_unit';
+        let notationMode = 'hm';       // 'hm' or 'schoenflies'
 
         // Full rotation step and pause controls
         let pauseTimer = 0;
@@ -916,27 +931,44 @@
 
             if (currentOperator === 'mirror') {
                 titleEl.innerText = 'Cermin (Mirror)';
-                symbolEl.innerText = 'm';
+                symbolEl.innerHTML = notationMode === 'hm' ? 'm' : '&sigma;';
                 descEl.innerText = 'Merefleksikan objek terhadap bidang cermin normal (u,v,w). Menukar kiralitas tangan. Perhatikan posisi penanda merah vs kuning!';
             } else if (currentOperator === 'rotation') {
                 titleEl.innerText = `Rotasi ${currentFold}-Lipat`;
-                symbolEl.innerText = `${currentFold}`;
+                symbolEl.innerHTML = notationMode === 'hm' ? `${currentFold}` : `C<sub>${currentFold}</sub>`;
                 descEl.innerText = `Memutar objek 1 putaran penuh (360°) dengan jeda singkat pada setiap orde (${currentFold} tahap × ${(360/currentFold).toFixed(1)}°).`;
             } else if (currentOperator === 'rotoreflection') {
                 titleEl.innerText = `Rotorifleksi S${currentFold}`;
-                symbolEl.innerText = `S${currentFold}`;
+                
+                let scSym = `S<sub>${currentFold}</sub>`;
+                let hmSym = currentFold === 1 ? 'm' : currentFold === 2 ? '1̄' : currentFold === 3 ? '6̄' : currentFold === 4 ? '4̄' : currentFold === 6 ? '3̄' : '';
+
+                symbolEl.innerHTML = notationMode === 'hm' ? hmSym : scSym;
                 descEl.innerText = `Kombinasi rotasi bertahap ${(360/currentFold).toFixed(1)}° diikuti pencerminan terhadap bidang tegak lurus sumbu (bidang ungu). Objek bertukar kiralitas pada orde ganjil.`;
             } else if (currentOperator === 'rotoinversion') {
                 titleEl.innerText = `Rotoinversi ${currentFold}̄`;
-                symbolEl.innerText = `${currentFold}̄`;
+                
+                let hmSym = `${currentFold}̄`;
+                let scSym = '';
+                if (currentFold === 1) scSym = 'i';
+                else if (currentFold === 2) scSym = '&sigma;';
+                else if (currentFold === 3) scSym = 'S<sub>6</sub>';
+                else if (currentFold === 4) scSym = 'S<sub>4</sub>';
+                else if (currentFold === 6) scSym = 'S<sub>3</sub>';
+
+                symbolEl.innerHTML = notationMode === 'hm' ? hmSym : scSym;
                 descEl.innerText = `Kombinasi rotasi bertahap ${(360/currentFold).toFixed(1)}° diikuti inversi simetris terhadap pusat (0,0,0) (bola emas). Koordinat (x,y,z) membalik menjadi (-x,-y,-z) pada orde ganjil.`;
             } else if (currentOperator === 'screw') {
                 titleEl.innerText = `Sumbu Sekrup ${currentFold}_${screwIndex}`;
-                symbolEl.innerText = `${currentFold}₃`.replace('3', screwIndex);
+                
+                const subs = ['₀','₁','₂','₃','₄','₅'];
+                let hmSym = `${currentFold}${subs[screwIndex] || '_' + screwIndex}`;
+                
+                symbolEl.innerHTML = notationMode === 'hm' ? hmSym : `C<sub>${currentFold}</sub><sup>s</sup>`;
                 descEl.innerText = `Rotasi bertahap ${(360/currentFold).toFixed(1)}° ditambah pergeseran heliks sejauh ${screwIndex}/${currentFold} per tahap.`;
             } else if (currentOperator === 'glide') {
                 titleEl.innerText = 'Bidang Geser (Glide Plane)';
-                symbolEl.innerText = 'a / b / c / n';
+                symbolEl.innerHTML = notationMode === 'hm' ? 'a / b / c / n' : '&sigma;<sub>g</sub>';
                 descEl.innerText = 'Pencerminan terhadap bidang datar diikuti translasi setengah panjang kisi paralel ke bidang.';
             }
         }
@@ -1287,6 +1319,122 @@
                     toast.classList.add('translate-y-20', 'opacity-0');
                 }, 2500);
             }
+        }
+
+        function setNotation(mode) {
+            notationMode = mode;
+            
+            const btnHm = document.getElementById('btn-not-hm');
+            const btnSc = document.getElementById('btn-not-sc');
+            
+            if (mode === 'hm') {
+                btnHm.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+                btnHm.classList.remove('text-slate-400', 'hover:text-slate-200');
+                
+                btnSc.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+                btnSc.classList.add('text-slate-400', 'hover:text-slate-200');
+            } else {
+                btnSc.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+                btnSc.classList.remove('text-slate-400', 'hover:text-slate-200');
+                
+                btnHm.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+                btnHm.classList.add('text-slate-400', 'hover:text-slate-200');
+            }
+            
+            updateHMSymbol();
+        }
+
+        function applyManualSymbol() {
+            const inputEl = document.getElementById('manualSymbolInput');
+            if (!inputEl) return;
+            const raw = inputEl.value.trim().toLowerCase();
+            const s = raw.replace(/[^a-z0-9\-\_σ]/g, ''); 
+            
+            if(!s) return;
+
+            let found = false;
+
+            // Hermann-Mauguin Rotoinversion (-N) and Rotation (N)
+            const rotoinvMatch = s.match(/^(-|bar)?([12346])(bar)?$/);
+            if (rotoinvMatch) {
+                setNotation('hm');
+                const isInv = rotoinvMatch[1] === '-' || rotoinvMatch[1] === 'bar' || rotoinvMatch[3] === 'bar';
+                const num = parseInt(rotoinvMatch[2]);
+                
+                if (isInv) {
+                    if (num === 2) setOperator('mirror');
+                    else { setOperator('rotoinversion'); setFold(num); }
+                } else {
+                    setOperator('rotation'); setFold(num);
+                }
+                found = true;
+            }
+            // Hermann-Mauguin Mirror
+            else if (s === 'm') {
+                setNotation('hm');
+                setOperator('mirror');
+                found = true;
+            }
+            // Hermann-Mauguin Screw Axis
+            else if (s.match(/^([2346])_([12345])$/)) {
+                const match = s.match(/^([2346])_([12345])$/);
+                const n = parseInt(match[1]);
+                const m = parseInt(match[2]);
+                if (m < n) {
+                    setNotation('hm');
+                    setOperator('screw');
+                    setFold(n);
+                    screwIndex = m;
+                    updateScrewIndexOptions();
+                    recalculateSymmetry();
+                    found = true;
+                }
+            }
+            // Hermann-Mauguin Glide
+            else if (['a', 'b', 'c', 'n', 'd'].includes(s)) {
+                setNotation('hm');
+                setOperator('glide');
+                found = true;
+            }
+            // Schönflies Rotation
+            else if (s.match(/^c([12346])$/)) {
+                setNotation('schoenflies');
+                const num = parseInt(s.match(/^c([12346])$/)[1]);
+                setOperator('rotation');
+                setFold(num);
+                found = true;
+            }
+            // Schönflies Rotoreflection
+            else if (s.match(/^s([12346])$/)) {
+                setNotation('schoenflies');
+                const num = parseInt(s.match(/^s([12346])$/)[1]);
+                if (num === 1) setOperator('mirror');
+                else if (num === 2) { setOperator('rotoinversion'); setFold(1); }
+                else { setOperator('rotoreflection'); setFold(num); }
+                found = true;
+            }
+            // Schönflies Inversion (i)
+            else if (s === 'i') {
+                setNotation('schoenflies');
+                setOperator('rotoinversion');
+                setFold(1);
+                found = true;
+            }
+            // Schönflies Mirror (sigma)
+            else if (s === 'sigma' || s === 'σ') {
+                setNotation('schoenflies');
+                setOperator('mirror');
+                found = true;
+            }
+
+            if (found) {
+                showToast(`Penerapan simbol: ${raw}`);
+                resetAnimProgress();
+            } else {
+                showToast(`Simbol tidak dikenali: ${raw}`);
+            }
+            
+            inputEl.value = ''; // clear input
         }
 
         function applyPreset(presetKey) {
